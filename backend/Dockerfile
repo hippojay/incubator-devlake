@@ -23,15 +23,15 @@
 #While incubation status is not necessarily a reflection of the completeness or stability of the code,
 #it does indicate that the project has yet to be fully endorsed by the ASF.
 
-FROM --platform=linux/amd64 debian:bullseye as debian-amd64
+FROM --platform=linux/amd64 debian:bullseye AS debian-amd64
 RUN apt-get update
 RUN apt-get install -y libssh2-1-dev libssl-dev zlib1g-dev
 
-FROM --platform=linux/arm64 debian:bullseye as debian-arm64
-RUN apt-get update
-RUN apt-get install -y libssh2-1-dev libssl-dev zlib1g-dev
+#FROM --platform=linux/arm64 debian:bullseye as debian-arm64
+#RUN apt-get update
+#RUN apt-get install -y libssh2-1-dev libssl-dev zlib1g-dev
 
-FROM --platform=$BUILDPLATFORM golang:1.20.4-bullseye as builder
+FROM --platform=$BUILDPLATFORM golang:1.20.4-bullseye AS builder
 
 # docker build --build-arg GOPROXY=https://goproxy.io,direct -t mericodev/lake .
 ARG GOPROXY=
@@ -42,11 +42,17 @@ ARG HTTPS_PROXY=
 RUN apt-get update
 RUN apt-get install -y gcc binutils libfindbin-libs-perl cmake libssh2-1-dev libssl-dev zlib1g-dev
 
-RUN if [ "$(arch)" != "aarch64" ] ; then \
-        apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu ; \
-    fi
+#RUN if [ "$(arch)" != "aarch64" ] ; then \
+#        apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu ; \
+#    fi
 RUN if [ "$(arch)" != "x86_64" ] ; then \
         apt-get install -y gcc-x86-64-linux-gnu binutils-x86-64-linux-gnu ; \
+    fi
+
+ARG CA_CERT
+COPY ${CA_CERT:-./scripts/dummy.crt} /usr/local/share/ca-certificates/custom.crt
+RUN if [ -n ${CA_CERT} ]; then \
+        export SSL_CERT_FILE=/usr/local/share/ca-certificates/custom.crt && update-ca-certificates ; \ 
     fi
 
 RUN go install github.com/vektra/mockery/v2@v2.20.0
@@ -56,12 +62,12 @@ COPY --from=debian-amd64 /usr/include /rootfs-amd64/usr/include
 COPY --from=debian-amd64 /usr/lib/x86_64-linux-gnu /rootfs-amd64/usr/lib/x86_64-linux-gnu
 COPY --from=debian-amd64 /lib/x86_64-linux-gnu /rootfs-amd64/lib/x86_64-linux-gnu
 
-COPY --from=debian-arm64 /usr/include /rootfs-arm64/usr/include
-COPY --from=debian-arm64 /usr/lib/aarch64-linux-gnu /rootfs-arm64/usr/lib/aarch64-linux-gnu
-COPY --from=debian-arm64 /lib/aarch64-linux-gnu /rootfs-arm64/lib/aarch64-linux-gnu
+#COPY --from=debian-arm64 /usr/include /rootfs-arm64/usr/include
+#COPY --from=debian-arm64 /usr/lib/aarch64-linux-gnu /rootfs-arm64/usr/lib/aarch64-linux-gnu
+#COPY --from=debian-arm64 /lib/aarch64-linux-gnu /rootfs-arm64/lib/aarch64-linux-gnu
 
 
-RUN for arch in aarch64 x86_64 ; do \
+RUN for arch in x86_64 ; do \
         mkdir -p /tmp/build/${arch} && cd /tmp/build/${arch} && \
         wget https://github.com/libgit2/libgit2/archive/refs/tags/v1.3.2.tar.gz -O - | tar -xz && \
         cd libgit2-1.3.2 && \
@@ -79,7 +85,7 @@ RUN for arch in aarch64 x86_64 ; do \
     done
 
 
-FROM builder as build
+FROM builder AS build
 
 WORKDIR /app
 COPY . /app
@@ -113,7 +119,7 @@ RUN cd /usr/local/deps/target/lib && \
     done
 
 
-FROM python:3.9-slim-bullseye as base
+FROM python:3.9-slim-bullseye AS base
 
 RUN apt-get update && \
     apt-get install -y python3-dev python3-pip tar pkg-config curl libssh2-1 zlib1g libffi-dev default-libmysqlclient-dev libpq-dev tini git openssh-client corkscrew && \
@@ -142,21 +148,39 @@ WORKDIR /app
 RUN mkdir logs
 VOLUME /app/logs
 
+ARG CA_CERT
+COPY ${CA_CERT:-./scripts/dummy.crt} /usr/local/share/ca-certificates/custom.crt
+
 # Setup Python
 COPY python/ /app/python/
-RUN python3 -m pip install --no-cache --upgrade pip setuptools && \
+RUN if [ -n ${CA_CERT} ]; then \
+    export REQUESTS_CA_BUNDLE=/usr/local/share/ca-certificates/custom.crt && \
+    export SSL_CERT_FILE=/usr/local/share/ca-certificates/custom.crt && \
+    export PIP_CERT=/usr/local/share/ca-certificates/custom.crt && \
+    update-ca-certificates ; \ 
+    fi && python3 -m pip install --no-cache --upgrade pip setuptools && \
     python3 -m pip install --no-cache -r python/requirements.txt && \
     python3 -m pip install --upgrade pip
 
 # Setup Python Poetry package manager
-RUN curl -sSL https://install.python-poetry.org | python3 -
+RUN if [ -n ${CA_CERT} ]; then \
+        export REQUESTS_CA_BUNDLE=/usr/local/share/ca-certificates/custom.crt && \
+        export SSL_CERT_FILE=/usr/local/share/ca-certificates/custom.crt && \
+        export PIP_CERT=/usr/local/share/ca-certificates/custom.crt && \
+        update-ca-certificates ; \ 
+    fi && curl -sSL https://install.python-poetry.org | python3 - 
 ENV PATH="$PATH:/app/.local/bin"
 
 # Build Python plugins, make sure the scripts has execute permission
 # RUN find /app/python/ -name "*.sh" | xargs -I{} chmod +x {}
-RUN /app/python/build.sh
+RUN if [ -n ${CA_CERT} ]; then \
+        export REQUESTS_CA_BUNDLE=/usr/local/share/ca-certificates/custom.crt && \
+        export SSL_CERT_FILE=/usr/local/share/ca-certificates/custom.crt && \
+        export PIP_CERT=/usr/local/share/ca-certificates/custom.crt && \
+        update-ca-certificates ; \ 
+    fi &&/app/python/build.sh
 
-FROM base as devlake-base
+FROM base AS devlake-base
 ARG DEBUG=
 
 # libraries
