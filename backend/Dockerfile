@@ -23,15 +23,14 @@
 #While incubation status is not necessarily a reflection of the completeness or stability of the code,
 #it does indicate that the project has yet to be fully endorsed by the ASF.
 
-FROM --platform=linux/amd64 debian:bullseye AS debian-amd64
-RUN apt-get update
-RUN apt-get install -y libssh2-1-dev libssl-dev zlib1g-dev
+FROM --platform=linux/amd64 debian:bookworm AS debian-amd64
+RUN apt-get update && apt-get install -y libssh2-1-dev libssl-dev zlib1g-dev
 
 #FROM --platform=linux/arm64 debian:bullseye as debian-arm64
 #RUN apt-get update
 #RUN apt-get install -y libssh2-1-dev libssl-dev zlib1g-dev
 
-FROM --platform=$BUILDPLATFORM golang:1.20.4-bullseye AS builder
+FROM --platform=$BUILDPLATFORM golang:1.23.5-bookworm AS builder
 
 # docker build --build-arg GOPROXY=https://goproxy.io,direct -t mericodev/lake .
 ARG GOPROXY=
@@ -39,8 +38,7 @@ ARG GOPROXY=
 ARG HTTP_PROXY=
 ARG HTTPS_PROXY=
 
-RUN apt-get update
-RUN apt-get install -y gcc binutils libfindbin-libs-perl cmake libssh2-1-dev libssl-dev zlib1g-dev
+RUN apt-get update && apt-get install -y binutils cmake gcc libfindbin-libs-perl libssh2-1-dev libssl-dev zlib1g-dev
 
 #RUN if [ "$(arch)" != "aarch64" ] ; then \
 #        apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu ; \
@@ -55,8 +53,8 @@ RUN if [ -n ${CA_CERT} ]; then \
         export SSL_CERT_FILE=/usr/local/share/ca-certificates/custom.crt && update-ca-certificates ; \ 
     fi
 
-RUN go install github.com/vektra/mockery/v2@v2.20.0
-RUN go install github.com/swaggo/swag/cmd/swag@v1.16.1
+RUN go install github.com/vektra/mockery/v2@v2.51.1
+RUN go install github.com/swaggo/swag/cmd/swag@v1.16.4
 
 COPY --from=debian-amd64 /usr/include /rootfs-amd64/usr/include
 COPY --from=debian-amd64 /usr/lib/x86_64-linux-gnu /rootfs-amd64/usr/lib/x86_64-linux-gnu
@@ -119,10 +117,11 @@ RUN cd /usr/local/deps/target/lib && \
     done
 
 
-FROM python:3.9-slim-bullseye AS base
+FROM python:3.9.21-slim-bookworm AS base
 
 RUN apt-get update && \
-    apt-get install -y python3-dev python3-pip tar pkg-config curl libssh2-1 zlib1g libffi-dev default-libmysqlclient-dev libpq-dev tini git openssh-client corkscrew && \
+    apt-get install -y corkscrew curl default-libmysqlclient-dev git libffi-dev \ 
+         libpq-dev libssh2-1 openssh-client python3-dev python3-pip pkg-config tar tini zlib1g && \
     apt-get clean && \
     rm -fr /usr/share/doc/* \
            /usr/share/info/* \
@@ -138,8 +137,7 @@ RUN apt-get update && \
 
 EXPOSE 8080
 
-RUN useradd -ms /bin/bash -d /app devlake -u 1010
-RUN chown -R devlake:devlake /etc/ssl/certs
+RUN useradd -ms /bin/bash -d /app devlake -u 1010 && chown -R devlake:devlake /etc/ssl/certs
 USER devlake
 ENV PYTHONUNBUFFERED=1
 
