@@ -22,6 +22,7 @@ TAG := $(shell if [ -d .git ]; then git tag --points-at HEAD; else echo "default
 IMAGE_REPO ?= "apache"
 VERSION = $(TAG)@$(SHA)
 PYTHON_DIR ?= "./python"
+INCLUDE_CA_CERT := $(shell if [ -f "./custom.crt" ]; then echo "--build-arg CA_CERT=./custom.crt" ; fi)
 
 
 all: build
@@ -105,7 +106,7 @@ clean:
 	@rm -rf bin
 
 build-server-image:
-	docker build -t $(IMAGE_REPO)/devlake:$(TAG) --build-arg TAG=$(TAG) --build-arg SHA=$(SHA) --file ./Dockerfile .
+	docker build -t $(IMAGE_REPO)/devlake:$(TAG) $(INCLUDE_CA_CERT) --build-arg TAG=$(TAG) --build-arg SHA=$(SHA) --file ./Dockerfile .
 
 migration-script-lint:
 	go run core/migration/linter/main.go -- $$(find . -path '**/migrationscripts/**.go')
