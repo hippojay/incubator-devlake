@@ -19,6 +19,7 @@
 
 SHA := $(shell if [ -d .git ]; then git show -s --format=%h; else echo "default_SHA"; fi)
 TAG := $(shell if [ -d .git ]; then git tag --points-at HEAD; else echo "default_TAG"; fi)
+TAG=python312
 IMAGE_REPO ?= "apache"
 VERSION = $(TAG)@$(SHA)
 PYTHON_DIR ?= "./python"

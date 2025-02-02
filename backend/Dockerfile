@@ -117,7 +117,7 @@ RUN cd /usr/local/deps/target/lib && \
     done
 
 
-FROM python:3.9.21-slim-bookworm AS base
+FROM python:3.12.8-slim-bookworm AS base
 
 RUN apt-get update && \
     apt-get install -y corkscrew curl default-libmysqlclient-dev git libffi-dev \ 
