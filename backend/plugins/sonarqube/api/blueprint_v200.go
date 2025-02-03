@@ -131,7 +131,8 @@ func GetApiProject(
 	}
 	query := url.Values{}
 	query.Set("q", projectKey)
-	res, err := apiClient.Get("projects/search", query, nil)
+	query.Set("qualifiers", "TRK")
+	res, err := apiClient.Get("components/search", query, nil)
 	if err != nil {
 		return nil, err
 	}
