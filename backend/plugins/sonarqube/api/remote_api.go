@@ -48,7 +48,8 @@ func querySonarqubeProjects(
 	if page.Page == 0 {
 		page.Page = 1
 	}
-	res, err := apiClient.Get("projects/search", url.Values{
+	res, err := apiClient.Get("components/search", url.Values{
+		"qualifiers": []string{"TRK"},
 		"p":  {fmt.Sprintf("%v", page.Page)},
 		"ps": {fmt.Sprintf("%v", page.PageSize)},
 		"q":  {keyword},
