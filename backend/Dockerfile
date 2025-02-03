@@ -49,7 +49,8 @@ RUN if [ "$(arch)" != "x86_64" ] ; then \
 
 ARG CA_CERT
 COPY ${CA_CERT:-./scripts/dummy.crt} /usr/local/share/ca-certificates/custom.crt
-RUN if [ -n ${CA_CERT} ]; then \
+RUN if [ -n "${CA_CERT}" ]; then \
+        echo "CA CERT ${CA_CERT} is being used" ; \
         export SSL_CERT_FILE=/usr/local/share/ca-certificates/custom.crt && update-ca-certificates ; \ 
     fi
 
@@ -153,32 +154,38 @@ COPY ${CA_CERT:-./scripts/dummy.crt} /usr/local/share/ca-certificates/custom.crt
 
 # Setup Python
 COPY python/ /app/python/
-RUN if [ -n ${CA_CERT} ]; then \
-    export REQUESTS_CA_BUNDLE=/usr/local/share/ca-certificates/custom.crt && \
-    export SSL_CERT_FILE=/usr/local/share/ca-certificates/custom.crt && \
-    export PIP_CERT=/usr/local/share/ca-certificates/custom.crt && \
-    update-ca-certificates ; \ 
-    fi && python3 -m pip install --no-cache --upgrade pip setuptools && \
+RUN if [ -n "${CA_CERT}" ]; then \
+        echo "CA CERT ${CA_CERT} is being used" ; \
+        export REQUESTS_CA_BUNDLE=/usr/local/share/ca-certificates/custom.crt && \
+        export SSL_CERT_FILE=/usr/local/share/ca-certificates/custom.crt && \
+        export PIP_CERT=/usr/local/share/ca-certificates/custom.crt && \
+        update-ca-certificates ; \ 
+    fi && \
+    python3 -m pip install --no-cache --upgrade pip setuptools && \
     python3 -m pip install --no-cache -r python/requirements.txt && \
     python3 -m pip install --upgrade pip
 
 # Setup Python Poetry package manager
-RUN if [ -n ${CA_CERT} ]; then \
+RUN if [ -n "${CA_CERT}" ]; then \
+        echo "CA CERT ${CA_CERT} is being used" ; \
         export REQUESTS_CA_BUNDLE=/usr/local/share/ca-certificates/custom.crt && \
         export SSL_CERT_FILE=/usr/local/share/ca-certificates/custom.crt && \
         export PIP_CERT=/usr/local/share/ca-certificates/custom.crt && \
         update-ca-certificates ; \ 
-    fi && curl -sSL https://install.python-poetry.org | python3 - 
+    fi && \
+    curl -sSL https://install.python-poetry.org | python3 - 
 ENV PATH="$PATH:/app/.local/bin"
 
 # Build Python plugins, make sure the scripts has execute permission
 # RUN find /app/python/ -name "*.sh" | xargs -I{} chmod +x {}
-RUN if [ -n ${CA_CERT} ]; then \
+RUN if [ -n "${CA_CERT}" ]; then \
+        echo "CA CERT ${CA_CERT} is being used" ; \
         export REQUESTS_CA_BUNDLE=/usr/local/share/ca-certificates/custom.crt && \
         export SSL_CERT_FILE=/usr/local/share/ca-certificates/custom.crt && \
         export PIP_CERT=/usr/local/share/ca-certificates/custom.crt && \
         update-ca-certificates ; \ 
-    fi &&/app/python/build.sh
+    fi && \
+    /app/python/build.sh
 
 FROM base AS devlake-base
 ARG DEBUG=
@@ -201,4 +208,3 @@ ENV DEBUG="$DEBUG"
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 CMD ["lake"]
-
