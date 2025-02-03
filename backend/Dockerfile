@@ -122,7 +122,9 @@ FROM python:3.12.8-slim-bookworm AS base
 RUN apt-get update && \
     apt-get install -y corkscrew curl default-libmysqlclient-dev git libffi-dev \ 
          libpq-dev libssh2-1 openssh-client python3-dev python3-pip pkg-config tar tini zlib1g && \
-    apt-get clean && \
+         apt-get remove -y libaom3 && \
+         apt-get autoremove -y && \
+         apt-get clean && \
     rm -fr /usr/share/doc/* \
            /usr/share/info/* \
            /usr/share/linda/* \
