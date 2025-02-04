@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/apache/incubator-devlake/plugins/gitlab/tasks"
 
@@ -111,6 +112,31 @@ func makePipelinePlanV200(
 	scopeDetails []*srvhelper.ScopeDetail[models.GitlabProject, models.GitlabScopeConfig],
 ) (coreModels.PipelinePlan, errors.Error) {
 	plans := make(coreModels.PipelinePlan, 0, 3*len(scopeDetails))
+
+	isGlobalAccountCollection := false
+
+	// Check if this is NOT gitlab.com before adding account stage
+    if !strings.HasPrefix(connection.Endpoint, "https://gitlab.com") {
+		// Add the account processing stage first
+		accountStage := coreModels.PipelineStage{
+			&coreModels.PipelineTask{
+				Plugin: pluginName,
+				Subtasks: []string{
+					"Collect Users",
+					"Extract Users",
+					"Convert Users",
+				},
+				Options: map[string]interface{}{
+					"connectionId": connection.ID,
+					"projectId":    1,
+					"fullName": "Accounts Collector",
+				},
+			},
+		}
+		plans = append(plans, accountStage)
+		isGlobalAccountCollection = true
+	}
+	
 	for _, scope := range scopeDetails {
 		gitlabProject, scopeConfig := scope.Scope, scope.ScopeConfig
 		var stage coreModels.PipelineStage
@@ -122,6 +148,19 @@ func makePipelinePlanV200(
 		})
 		if err != nil {
 			return nil, err
+		}
+
+		if isGlobalAccountCollection {
+			// Remove "Collect/Extract/Convert Users" from subtasks if we already did global collection
+			filteredSubtasks := make([]string, 0)
+			for _, subtask := range task.Subtasks {
+				if subtask != "Collect Users" && 
+				   subtask != "Extract Users" && 
+				   subtask != "Convert Users" {
+					filteredSubtasks = append(filteredSubtasks, subtask)
+				}
+			}
+			task.Subtasks = filteredSubtasks
 		}
 		stage = append(stage, task)
 
